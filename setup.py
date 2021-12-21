@@ -19,7 +19,7 @@ module1 = Extension(
 )
 
 setup(
-    name="cpytest",
+    name="cpytools",
     version="1.0",
     description="Python/C API Test",
     ext_modules=[module1],
