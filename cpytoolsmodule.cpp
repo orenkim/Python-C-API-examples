@@ -125,7 +125,7 @@ static PyObject *rolling_sum2(PyObject *self, PyObject *args) {
     if (!in_arr) return nullptr;
     PyArrayObject *in_arr_obj = reinterpret_cast<PyArrayObject *>(in_arr);
 
-    long *dims = PyArray_DIMS(in_arr_obj);
+    npy_intp *dims = PyArray_DIMS(in_arr_obj);
     int nd = PyArray_NDIM(in_arr_obj);
 
     if (nd != 2) {
