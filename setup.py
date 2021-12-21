@@ -1,9 +1,13 @@
 from distutils.core import setup, Extension
 import sysconfig
 import numpy
+import sys
 
-extra_compile_args = sysconfig.get_config_var("CFLAGS").split()
-extra_compile_args.append("-std=c++17")
+if sys.platform == "win32":
+    extra_compile_args = ["/std:c++17"]
+else:
+    extra_compile_args = sysconfig.get_config_var("CFLAGS").split()
+    extra_compile_args.append("-std=c++17")
 
 module1 = Extension(
     "cpytools",
