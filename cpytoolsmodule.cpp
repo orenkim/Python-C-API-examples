@@ -5,14 +5,14 @@
 #include <vector>
 
 
-static void rolling_sum_1d(const double *in_ptr, long window, double *out_ptr, long num_rows, long row_stride) {
+static void rolling_sum_1d(const double *in_ptr, long window, double *out_ptr, long length, long stride) {
     long i;
     double sum = 0.0;
     long cnt = 0, idx;
     double val, val_adj, new_sum, delta = 0.0;
 
     for (i = 0; i < window; ++i) {
-        idx = i * row_stride;
+        idx = i * stride;
         val = in_ptr[idx];
 
         if (std::isfinite(val)) {
@@ -32,9 +32,9 @@ static void rolling_sum_1d(const double *in_ptr, long window, double *out_ptr, l
         }
     }
 
-    for (i = window; i < num_rows; ++i) {
-        idx = i * row_stride;
-        val = in_ptr[idx - window * row_stride];
+    for (i = window; i < length; ++i) {
+        idx = i * stride;
+        val = in_ptr[idx - window * stride];
 
         if (std::isfinite(val)) {
             // Kahan summation algorithm
