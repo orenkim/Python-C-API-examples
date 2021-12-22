@@ -12,9 +12,10 @@ static void rolling_sum(const double *in_ptr, long window, double *out_ptr, long
     long i;
     double sum = 0.0;
     long cnt = 0, idx;
+    long initial_range = (window < length) ? window : length;
     double val, val_adj, new_sum, delta = 0.0;
 
-    for (i = 0; i < window; ++i) {
+    for (i = 0; i < initial_range; ++i) {
         idx = i * stride;
         val = in_ptr[idx];
 
@@ -36,7 +37,7 @@ static void rolling_sum(const double *in_ptr, long window, double *out_ptr, long
         }
     }
 
-    for (i = window; i < length; ++i) {
+    for (; i < length; ++i) {
         idx = i * stride;
         val = in_ptr[idx - window * stride];
 
