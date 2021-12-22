@@ -1,11 +1,14 @@
 #include <Python.h>
 #include <numpy/arrayobject.h>
 #include <cmath>
-#include <thread>
-#include <vector>
+#include "rolling.hpp"
 
 
-static void rolling_sum_single_column(const double *in_ptr, long window, double *out_ptr, long length, long stride) {
+using rolling_function_type = void(*)(const double *, long, double *, long, long);
+using rolling_applier_type = void(*)(rolling_function_type, const double *, long, double *, long, long);
+
+
+static void rolling_sum(const double *in_ptr, long window, double *out_ptr, long length, long stride) {
     long i;
     double sum = 0.0;
     long cnt = 0, idx;
@@ -69,54 +72,9 @@ static void rolling_sum_single_column(const double *in_ptr, long window, double 
 }
 
 
-static void apply_rolling_function(void(*rolling_function)(const double *, long, double *, long, long),
-                                   const double *in_ptr, long window, double *out_ptr, long length, long stride,
-                                   long column_start, long column_stop) {
-    for (long i = column_start; i < column_stop; ++i) {
-        rolling_function(in_ptr + i, window, out_ptr + i, length, stride);
-    }
-}
-
-
-static void rolling_sum_2d_single_thread(const double *in_ptr, long window, double *out_ptr,
-                                         long num_rows, long num_cols) {
-    apply_rolling_function(rolling_sum_single_column, in_ptr, window, out_ptr, num_rows, num_cols, 0, num_cols);
-}
-
-
-static void rolling_sum_2d_multi_thread(const double *in_ptr, long window, double *out_ptr,
-                                        long num_rows, long num_cols) {
-    std::vector<std::thread> thread_vec;
-    long start, stop, i;
-    long num_threads = (std::thread::hardware_concurrency() + 1) / 2;
-
-    // Columns are divided into (num_thread) pieces, each of which is assigned to a thread.
-
-    long per_thread = num_cols / num_threads;
-    long rem = num_cols % num_threads;
-
-    for (i = 0; i < num_threads; ++i) {
-        if (i < rem) {
-            start = (per_thread + 1) * i;
-            stop = (per_thread + 1) * (i + 1);
-        }
-        else {
-            start = per_thread * i + rem;
-            stop = per_thread * (i + 1) + rem;
-        }
-
-        // Each thread executes "apply_rolling_function(rolling_sum_single_column, in_ptr, window, out_ptr, num_rows, num_cols, start, stop)"
-        thread_vec.push_back(std::thread(apply_rolling_function, rolling_sum_single_column,
-                                         in_ptr, window, out_ptr, num_rows, num_cols, start, stop));
-    }
-
-    for (auto &&thread : thread_vec) {
-        thread.join();
-    }
-}
-
-
-static PyObject *calculate_rolling_stats(void(*rolling_function_2d)(const double *, long, double *, long, long), PyObject *args) {
+static PyObject *calculate_rolling_stats
+(rolling_function_type rolling_function, rolling_applier_type rolling_applier, PyObject *args)
+{
     PyObject *in_arg = nullptr;
     long window;
     if (!PyArg_ParseTuple(args, "Ol", &in_arg, &window)) {
@@ -146,9 +104,10 @@ static PyObject *calculate_rolling_stats(void(*rolling_function_2d)(const double
 
     auto in_ptr = reinterpret_cast<const double *>(PyArray_DATA(in_arr_obj));
     auto out_ptr = reinterpret_cast<double *>(PyArray_DATA(reinterpret_cast<PyArrayObject *>(out_arr)));
-    long num_rows = dims[0], num_cols = dims[1];
+    long num_rows = dims[0];
+    long num_columns = dims[1];
 
-    rolling_function_2d(in_ptr, window, out_ptr, num_rows, num_cols);
+    rolling_applier(rolling_function, in_ptr, window, out_ptr, num_rows, num_columns);
 
     Py_DECREF(in_arr);
 
@@ -156,19 +115,19 @@ static PyObject *calculate_rolling_stats(void(*rolling_function_2d)(const double
 }
 
 
-static PyObject *rolling_sum(PyObject *self, PyObject *args) {
-    return calculate_rolling_stats(rolling_sum_2d_single_thread, args);
+static PyObject *cpytools_rolling_sum(PyObject *self, PyObject *args) {
+    return calculate_rolling_stats(rolling_sum, apply_rolling_function, args);
 }
 
 
-static PyObject *rolling_sum2(PyObject *self, PyObject *args) {
-    return calculate_rolling_stats(rolling_sum_2d_multi_thread, args);
+static PyObject *cpytools_rolling_sum2(PyObject *self, PyObject *args) {
+    return calculate_rolling_stats(rolling_sum, apply_rolling_function_multi_thread, args);
 }
 
 
 static PyMethodDef CPyToolsMethods[] = {
-    {"rolling_sum",  rolling_sum, METH_VARARGS, "calculates rolling sum"},
-    {"rolling_sum2",  rolling_sum2, METH_VARARGS, "calculates rolling sum using multiple threads"},
+    {"rolling_sum",  cpytools_rolling_sum, METH_VARARGS, "calculates rolling sum"},
+    {"rolling_sum2",  cpytools_rolling_sum2, METH_VARARGS, "calculates rolling sum using multiple threads"},
     {nullptr, nullptr, 0, nullptr}
 };
 
