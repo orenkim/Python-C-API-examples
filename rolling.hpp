@@ -49,12 +49,14 @@ long num_rows, long num_columns)
             stop = per_thread * (i + 1) + rem;
         }
 
-        // Each thread executes "apply_rolling_function_column_range(rolling_function, in_ptr, window, out_ptr, num_rows, num_columns, start, stop)"
-        thread_vec.push_back(std::thread(apply_rolling_function_column_range, rolling_function,
-                                         in_ptr, window, out_ptr, num_rows, num_columns, start, stop));
+        if (start < stop) { // could be false if num_columns < num_threads
+            // Each thread executes "apply_rolling_function_column_range(rolling_function, in_ptr, window, out_ptr, num_rows, num_columns, start, stop)"
+            thread_vec.push_back(std::thread(apply_rolling_function_column_range, rolling_function,
+                                             in_ptr, window, out_ptr, num_rows, num_columns, start, stop));
+        }
     }
 
-    for (auto &&thread : thread_vec) {
+    for (auto &thread : thread_vec) {
         thread.join();
     }
 }
