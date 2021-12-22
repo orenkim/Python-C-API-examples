@@ -33,7 +33,7 @@ static void rolling_sum(const double *in_ptr, long window, double *out_ptr, long
             out_ptr[idx] = sum;
         }
         else {
-            out_ptr[idx] = NAN;  // output = NAN when all values in the window are NAN
+            out_ptr[idx] = NAN;  // output = nan when all values in the window are nan, inf, or -inf
         }
     }
 
@@ -67,7 +67,7 @@ static void rolling_sum(const double *in_ptr, long window, double *out_ptr, long
             out_ptr[idx] = sum;
         }
         else {
-            out_ptr[idx] = NAN; // output = NAN when all values in the window are NAN
+            out_ptr[idx] = NAN; // output = nan when all values in the window are nan, inf, or -inf
         }
     }
 }
