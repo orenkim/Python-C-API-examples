@@ -69,18 +69,18 @@ static void rolling_sum_single_column(const double *in_ptr, long window, double 
 }
 
 
-static void rolling_sum_column_range(const double *in_ptr, long window, double *out_ptr, long length, long stride,
-                                     long start, long stop) {
-    // Applies "rolling_sum_single_column" on the range [start: stop]
-    for (long i = start; i < stop; ++i) {
-        rolling_sum_single_column(in_ptr + i, window, out_ptr + i, length, stride);
+static void apply_rolling_function(void(*rolling_function)(const double *, long, double *, long, long),
+                                   const double *in_ptr, long window, double *out_ptr, long length, long stride,
+                                   long column_start, long column_stop) {
+    for (long i = column_start; i < column_stop; ++i) {
+        rolling_function(in_ptr + i, window, out_ptr + i, length, stride);
     }
 }
 
 
 static void rolling_sum_2d_single_thread(const double *in_ptr, long window, double *out_ptr,
                                          long num_rows, long num_cols) {
-    rolling_sum_column_range(in_ptr, window, out_ptr, num_rows, num_cols, 0, num_cols);
+    apply_rolling_function(rolling_sum_single_column, in_ptr, window, out_ptr, num_rows, num_cols, 0, num_cols);
 }
 
 
@@ -105,8 +105,9 @@ static void rolling_sum_2d_multi_thread(const double *in_ptr, long window, doubl
             stop = per_thread * (i + 1) + rem;
         }
 
-        // Each thread executes "rolling_sum_column_range(in_ptr, window, out_ptr, num_rows, num_cols, start, stop)"
-        thread_vec.push_back(std::thread(rolling_sum_column_range, in_ptr, window, out_ptr, num_rows, num_cols, start, stop));
+        // Each thread executes "apply_rolling_function(rolling_sum_single_column, in_ptr, window, out_ptr, num_rows, num_cols, start, stop)"
+        thread_vec.push_back(std::thread(apply_rolling_function, rolling_sum_single_column,
+                                         in_ptr, window, out_ptr, num_rows, num_cols, start, stop));
     }
 
     for (auto &&thread : thread_vec) {
@@ -115,7 +116,7 @@ static void rolling_sum_2d_multi_thread(const double *in_ptr, long window, doubl
 }
 
 
-static PyObject *calculate_rolling_stats(PyObject *args, void(*calculator_function)(const double *, long, double *, long, long)) {
+static PyObject *calculate_rolling_stats(void(*rolling_function_2d)(const double *, long, double *, long, long), PyObject *args) {
     PyObject *in_arg = nullptr;
     long window;
     if (!PyArg_ParseTuple(args, "Ol", &in_arg, &window)) {
@@ -147,7 +148,7 @@ static PyObject *calculate_rolling_stats(PyObject *args, void(*calculator_functi
     auto out_ptr = reinterpret_cast<double *>(PyArray_DATA(reinterpret_cast<PyArrayObject *>(out_arr)));
     long num_rows = dims[0], num_cols = dims[1];
 
-    calculator_function(in_ptr, window, out_ptr, num_rows, num_cols);
+    rolling_function_2d(in_ptr, window, out_ptr, num_rows, num_cols);
 
     Py_DECREF(in_arr);
 
@@ -156,12 +157,12 @@ static PyObject *calculate_rolling_stats(PyObject *args, void(*calculator_functi
 
 
 static PyObject *rolling_sum(PyObject *self, PyObject *args) {
-    return calculate_rolling_stats(args, rolling_sum_2d_single_thread);
+    return calculate_rolling_stats(rolling_sum_2d_single_thread, args);
 }
 
 
 static PyObject *rolling_sum2(PyObject *self, PyObject *args) {
-    return calculate_rolling_stats(args, rolling_sum_2d_multi_thread);
+    return calculate_rolling_stats(rolling_sum_2d_multi_thread, args);
 }
 
 
