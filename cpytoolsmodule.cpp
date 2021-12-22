@@ -84,7 +84,7 @@ static PyObject *calculate_rolling_stats
 
     PyObject *in_arr = PyArray_FROM_OTF(in_arg, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
     if (!in_arr) return nullptr;
-    PyArrayObject *in_arr_obj = reinterpret_cast<PyArrayObject *>(in_arr);
+    auto in_arr_obj = reinterpret_cast<PyArrayObject *>(in_arr);
 
     npy_intp *dims = PyArray_DIMS(in_arr_obj);
     int nd = PyArray_NDIM(in_arr_obj);
